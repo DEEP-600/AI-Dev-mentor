@@ -1,0 +1,56 @@
+{
+  "name": "ai-dev-mentor",
+  "displayName": "AI Dev Mentor",
+  "description": "AI-powered coding mentor (backend powered)",
+  "version": "1.0.0",
+  "engines": { "vscode": "^1.70.0" },
+  "categories": ["Programming Languages", "Education"],
+  "activationEvents": [
+    "*"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-dev-mentor.explainSelection",
+        "title": "AI Dev Mentor: Explain Selection",
+        "icon": "$(mortar-board)"
+      },
+      {
+        "command": "ai-dev-mentor.openPanel",
+        "title": "Open AI Dev Mentor Panel",
+        "icon": "$(mortar-board)"
+      }
+    ],
+    "configuration": {
+      "title": "AI Mentor Settings",
+      "properties": {
+        "aiMentor.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable AI Dev Mentor popups."
+        },
+        "aiMentor.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:8787",
+          "description": "Backend base URL for AI Dev Mentor."
+        }
+      }
+    }
+  },
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "lint": "eslint src",
+    "test": "echo \"(tests disabled)\""
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.70.0",
+    "typescript": "^5.8.3"
+    
+  },
+  "dependencies": {},
+  "icon": "media/mentor-icon.png"
+}

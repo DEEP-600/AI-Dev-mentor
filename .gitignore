@@ -1,0 +1,16 @@
+# Node modules
+node_modules/
+
+# VS Code extension build output
+out/
+
+# Environment files
+backend/.env
+backend/.env.*
+.env
+.env.*
+
+# OS/IDE files
+.DS_Store
+.vscode/
+*.vsix
