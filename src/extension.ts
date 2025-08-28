@@ -231,6 +231,14 @@ function openOrRevealPanel(context?: vscode.ExtensionContext): vscode.WebviewPan
           }
         }
       );
+    } else if (msg.type === "insertCode" && typeof msg.code === "string") {
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        editor.edit((editBuilder) => {
+          editBuilder.insert(editor.selection.active, msg.code);
+        });
+      }
+      return;
     }
   });
 
@@ -399,8 +407,7 @@ function postJson<T = unknown>(urlStr: string, payload: any, timeoutMs = 10000):
 // -----------------------------
 
 function getPanelHtml() {
-  return `
-<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">  
 <head>
   <meta charset="UTF-8" />
@@ -433,7 +440,7 @@ function getPanelHtml() {
       margin: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Inter, Arial, sans-serif;
       background-color: #0C0D0C; color: var(--fg); display: flex; flex-direction: column; 
     }
-    .header { display:flex; align-items:center; justify-content:space-between; padding:8px 8px; border-bottom:1px solid var(--border);border-radius:15px;border-style: inset;  position:sticky; top:0; z-index:2;background-image: linear-gradient( 109.6deg,  rgba(0,0,0,1) 11.2%, rgba(11,132,145,1) 91.1% );}
+    .header { display:flex; align-items:center; justify-content:space-between; padding:4px 4px; border-bottom:1px solid var(--border);border-radius:1px; position:sticky; top:0; z-index:2;background-image: linear-gradient( 109.6deg,  rgba(0,0,0,1) 11.2%, rgba(11,132,145,1) 91.1% );}
 
     .brand { display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.2px;  }
 
@@ -441,14 +448,14 @@ function getPanelHtml() {
 
     .chat { position:relative; flex:1 1 auto; min-height:180px; padding:1px; overflow:auto; }
 
-    .msg { display:flex; gap:10px; margin-bottom:14px; align-items:flex-start;font-size: 12px; }
+    .msg { display:flex; gap:10px; margin-bottom:14px; align-items:flex-start;font-size: 14px; }
     .avatar { width:28px; height:28px; border-radius:50%;  border:1px solid var(--border); display:inline-flex; align-items:center; justify-content:center; font-size:12px; flex:0 0 auto; user-select:none; }
 
-    .bubble { max-width:85%; padding:10px 12px; border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow); line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+    .bubble { max-width:100%; padding:10px 12px; box-shadow:var(--shadow); line-height:1.85; white-space:pre-wrap; word-break:break-word; }
 
     .user { flex-direction: row-reverse; }
     
-    .user .bubble { background: #3b82f6; color: #fff; margin-left:auto; }
+    .user .bubble { background: #3b82f6; color: #fff; margin-left:auto; max-width:80%;  border-radius:12px; border:1px solid var(--border); }
     
     .composer { display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:var(--radius); padding:8px; background: var(--input-bg); }
     textarea { flex:1 1 auto; resize:none; border:none; outline:none; background:transparent; color:var(--input-fg); max-height:140px; min-height:40px; padding:6px 8px; font-family:inherit; font-size:13px; line-height:1.4; }
@@ -459,6 +466,64 @@ function getPanelHtml() {
 
     .hints { display:flex; gap:10px; align-items:center; color:var(--muted); font-size:12px; margin-top:6px; }
     kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:var(--kbd-bg); border:1px solid var(--border); padding:2px 6px; border-radius:6px; font-size:11px; }
+
+    .code-block {
+      background: #07111a;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin: 8px 0;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .code-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.05);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .code-lang {
+      font-weight: 600;
+      color:#4FB037;
+    }
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: var(--fg);
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: 6px;
+    }
+    .copy-btn:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    pre {
+      margin: 0;
+      padding: 12px 14px;
+      overflow: auto;
+      font-family: ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      color: blue;
+      line-height: 1.5;
+    }
+    code.inline {
+      background:  rgba(255,255,255,0.07);;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+    }
+    code {
+      font-family: var(--monaco-monospace-font, ui-monospace, Menlo, Monaco, Consolas, monospace);
+      color: var(--vscode-textPreformat-foreground, inherit);
+      background-color: #4e4a4a00;
+      padding: 1px 3px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -502,125 +567,195 @@ function getPanelHtml() {
   </div>
 
   <script>
-    const vscode = acquireVsCodeApi();
-    const chat = document.getElementById('chat');
-    const input = document.getElementById('input');
-    const sendBtn = document.getElementById('send');
+  const vscode = acquireVsCodeApi();
+  const chat = document.getElementById('chat');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
 
-    // pending map: id -> bubble element (for streaming updates)
-    const pending = new Map();
-    let counter = 0;
+  // pending map: id -> bubble element (for streaming updates)
+  const pending = new Map();
+  let counter = 0;
 
-    function addMessage(role, text) {
-      const wrap = document.createElement('div');
-      wrap.className = 'msg ' + role;
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
 
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
-      bubble.textContent = text || '';
+  function renderMarkdown(md) {
+    if (!md) return "";
+    // first escape entire input to avoid injection
+    const safeAll = escapeHtml(md);
 
-      wrap.appendChild(bubble);
-      chat.appendChild(wrap);
-      chat.scrollTop = chat.scrollHeight;
-      return bubble;
+    // Replace code fences with HTML blocks
+    let html = safeAll.replace(/\`\`\`(\\w+)?\\n([\\s\\S]*?)\`\`\`/g, (match, lang, code) => {
+      const safeCode = code.trim();
+      const dataCode = safeCode.replace(/"/g, "&quot;");
+      
+      return '<div class="code-block">' +
+        '<div class="code-toolbar">' +
+          '<span class="code-lang">' + (lang || "code") + '</span>' +
+          '<div>' +
+            '<button class="copy-btn" data-action="copy">Copy</button>' +
+            '<button class="copy-btn" data-action="insert">Insert</button>' +
+          '</div>' +
+        '</div>' +
+        '<pre><code data-code="' + dataCode + '">' + safeCode + '</code></pre>' +
+      '</div>';
+    });
+
+    // Inline code
+    html = html.replace(/\`([^\`\\n]+)\`/g, '<code class="inline">$1</code>');
+
+    // Paragraphs and line breaks
+    html = html.replace(/\\n{2,}/g, "</p><p>");
+    html = "<p>" + html.replace(/\\n/g, "<br>") + "</p>";
+
+    return html;
+  }
+
+  function addMessage(role, text) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + role;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text || '';
+
+    wrap.appendChild(bubble);
+    chat.appendChild(wrap);
+    chat.scrollTop = chat.scrollHeight;
+    return bubble;
+  }
+
+  function handleSend(explicitText) {
+    const val = typeof explicitText === 'string'
+      ? explicitText
+      : (input.value || '').trim();
+    if (!val) return;
+
+    addMessage('user', val);
+    input.value = '';
+
+    // create an AI placeholder bubble and register pending id
+    const id = 'm' + (++counter);
+    const placeholder = addMessage('ai', '…');
+    pending.set(id, placeholder);
+
+    vscode.postMessage({ type: 'userMessage', id, message: val });
+  }
+
+  // UI events
+  sendBtn.addEventListener('click', () => handleSend());
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+
+  document.getElementById('btn-new').addEventListener('click', () => {
+    chat.innerHTML = '';
+    addMessage('ai', 'New chat started. How can I help?');
+    input.focus();
+  });
+
+  document.getElementById('btn-refresh').addEventListener('click', () => {
+    addMessage('ai', 'Refreshed. (No editor context wired yet)');
+  });
+
+  document.getElementById('btn-settings').addEventListener('click', () => {
+    addMessage('ai', 'Settings UI coming later.');
+  });
+
+  // quick chips
+  Array.from(document.querySelectorAll('.chip')).forEach(c => {
+    c.addEventListener('click', () => {
+      input.value = c.textContent.trim();
+      input.focus();
+    });
+  });
+
+  // Handle code block button clicks (copy/insert) using event delegation
+  document.addEventListener('click', (e) => {
+    const button = e.target;
+    if (!button.classList.contains('copy-btn')) return;
+    
+    const action = button.getAttribute('data-action');
+    const codeBlock = button.closest('.code-block');
+    if (!codeBlock) return;
+    
+    const codeEl = codeBlock.querySelector('code');
+    if (!codeEl) return;
+    
+    const codeText = codeEl.getAttribute('data-code') || codeEl.textContent;
+    
+    if (action === 'copy') {
+      navigator.clipboard.writeText(codeText).then(() => {
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
+        setTimeout(() => { button.textContent = originalText; }, 1200);
+      });
+    } else if (action === 'insert') {
+      vscode.postMessage({ type: 'insertCode', code: codeText });
+    }
+  });
+
+  // Bridge: extension -> webview
+  window.addEventListener('message', (event) => {
+    const msg = event.data || {};
+    
+    // ai incremental chunk
+    if (msg.type === 'aiDelta') {
+      const id = msg.id;
+      const delta = msg.delta || '';
+      if (id && pending.has(id)) {
+        const bubble = pending.get(id);
+        // append delta to placeholder
+        bubble.textContent = (bubble.textContent || '') + delta;
+        chat.scrollTop = chat.scrollHeight;
+      } else {
+        // just append as a fresh AI message
+        addMessage('ai', delta);
+      }
     }
 
-    function handleSend(explicitText) {
-      const val = typeof explicitText === 'string'
-        ? explicitText
-        : (input.value || '').trim();
-      if (!val) return;
+    // ai done — finalize or show final text
+    if (msg.type === 'aiDone') {
+      const id = msg.id;
+      const finalText = msg.text;
+      if (id && pending.has(id)) {
+        const bubble = pending.get(id);
+        if (finalText !== null && typeof finalText === 'string') {
+          bubble.innerHTML = renderMarkdown(finalText);
+        }
+        pending.delete(id);
+        chat.scrollTop = chat.scrollHeight;
+      } else if (finalText) {
+        const bubble = addMessage('ai', '');
+        bubble.innerHTML = renderMarkdown(finalText);
+      }
+    }
 
-      addMessage('user', val);
-      input.value = '';
-
-      // create an AI placeholder bubble and register pending id
+    // seed: selection -> auto-send a "deep explain" prompt
+    if (msg.type === 'seedFromExplain' && typeof msg.term === 'string') {
+      addMessage('user', 'Explain: ' + msg.term);
       const id = 'm' + (++counter);
       const placeholder = addMessage('ai', '…');
       pending.set(id, placeholder);
 
-      vscode.postMessage({ type: 'userMessage', id, message: val });
+      const lang = msg.languageId || 'general';
+      const seedPrompt =
+        'Deeply explain the term "' + msg.term + '" in the context of ' + lang +
+        '. Provide a clear definition, multiple short examples, typical pitfalls, and a quick tip. Keep practical.';
+
+      vscode.postMessage({ type: 'userMessage', id, message: seedPrompt });
     }
-
-    // UI events
-    sendBtn.addEventListener('click', () => handleSend());
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-      }
-    });
-
-    document.getElementById('btn-new').addEventListener('click', () => {
-      chat.innerHTML = '';
-      addMessage('ai', 'New chat started. How can I help?');
-      input.focus();
-    });
-
-    document.getElementById('btn-refresh').addEventListener('click', () => {
-      addMessage('ai', 'Refreshed. (No editor context wired yet)');
-    });
-
-    document.getElementById('btn-settings').addEventListener('click', () => {
-      addMessage('ai', 'Settings UI coming later.');
-    });
-
-    // quick chips
-    Array.from(document.querySelectorAll('.chip')).forEach(c => {
-      c.addEventListener('click', () => {
-        input.value = c.textContent.trim();
-        input.focus();
-      });
-    });
-
-    // Bridge: extension -> webview
-    window.addEventListener('message', (event) => {
-      const msg = event.data || {};
-      // ai incremental chunk
-      if (msg.type === 'aiDelta') {
-        const id = msg.id;
-        const delta = msg.delta || '';
-        if (id && pending.has(id)) {
-          const bubble = pending.get(id);
-          // append delta to placeholder
-          bubble.textContent = (bubble.textContent || '') + delta;
-          chat.scrollTop = chat.scrollHeight;
-        } else {
-          // just append as a fresh AI message
-          addMessage('ai', delta);
-        }
-      }
-
-      // ai done — finalize or show final text
-      if (msg.type === 'aiDone') {
-        const id = msg.id;
-        const finalText = msg.text;
-        if (id && pending.has(id)) {
-          const bubble = pending.get(id);
-          if (finalText !== null && typeof finalText === 'string') bubble.textContent = finalText;
-          pending.delete(id);
-        } else if (finalText) {
-          addMessage('ai', finalText);
-        }
-      }
-
-      // seed: selection -> auto-send a "deep explain" prompt
-      if (msg.type === 'seedFromExplain' && typeof msg.term === 'string') {
-        addMessage('user', 'Explain: ' + msg.term);
-        const id = 'm' + (++counter);
-        const placeholder = addMessage('ai', '…');
-        pending.set(id, placeholder);
-
-        const lang = msg.languageId || 'general';
-        const seedPrompt =
-          'Deeply explain the term "' + msg.term + '" in the context of ' + lang +
-          '. Provide a clear definition, multiple short examples, typical pitfalls, and a quick tip. Keep practical.';
-
-        vscode.postMessage({ type: 'userMessage', id, message: seedPrompt });
-      }
-    });
+  });
   </script>
 </body>
-</html>
-  `;
-} 
+</html>`;
+}
+
